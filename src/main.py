@@ -3,6 +3,7 @@
 from config import format_config, parse_args
 from maven import MavenRepository
 from graph import TestRepository, build_graph
+from operations import loading_order
 import sys
 
 
@@ -21,8 +22,11 @@ def main(argv=None):
                 print("\n".join(dependencies) or "Прямых зависимостей нет")
             else:
                 graph = build_graph(args.package, repository)
-                for node, dependencies in graph.items():
-                    print(f"{node} -> {', '.join(dependencies) or '(нет)'}")
+                if args.mode == "order":
+                    print("\n".join(loading_order(graph)))
+                else:
+                    for node, dependencies in graph.items():
+                        print(f"{node} -> {', '.join(dependencies) or '(нет)'}")
     except (ValueError, OSError, RecursionError) as error:
         print(f"Ошибка: {error}", file=sys.stderr)
         return 1

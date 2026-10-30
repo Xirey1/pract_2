@@ -29,7 +29,8 @@ def parse_args(argv=None):
     parser.add_argument("--test-repository", action="store_true")
     parser.add_argument("--ascii", action="store_true", dest="ascii_tree")
     parser.add_argument(
-        "--mode", choices=["config", "direct", "graph"], default="graph"
+        "--mode", choices=["config", "direct", "graph", "order"],
+        default="graph"
     )
     args = parser.parse_args(argv)
     try:
