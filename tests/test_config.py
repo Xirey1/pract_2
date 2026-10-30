@@ -36,7 +36,25 @@ class ConfigTests(unittest.TestCase):
             base + ["--test-repository"],
         ]
         for argv in cases:
-            with self.subTest(argv=argv), contextlib.redirect_stderr(io.StringIO()):
-                with self.assertRaises(SystemExit) as caught:
-                    parse_args(argv)
-                self.assertEqual(caught.exception.code, 2)
+            with self.subTest(argv=argv):
+                self.assert_invalid(argv)
+
+    def assert_invalid(self, argv):
+        """Проверить код ошибки, не выводя справку в журнал тестов."""
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as caught:
+                parse_args(argv)
+            self.assertEqual(caught.exception.code, 2)
+
+    def test_test_mode_and_invalid_values(self):
+        """Проверить существующий JSON и разные неверные URL."""
+        path = Path(__file__).resolve().parents[1] / "examples/chain.json"
+        args = parse_args(["--package", "A", "--repository", str(path),
+                           "--test-repository", "--mode", "config"])
+        self.assertTrue(args.test_repository)
+        for url in ["https://", "https://repo.test:bad", "file:///repo",
+                    "https://repo.test/?q=a", "https://user:pw@repo.test"]:
+            with self.subTest(url=url):
+                self.assert_invalid(["--package", "g:a:1", "--repository", url])
+        self.assert_invalid(["--package", "A", "--repository", "missing.json",
+                             "--test-repository"])

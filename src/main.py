@@ -4,6 +4,7 @@ from config import format_config, parse_args
 from maven import MavenRepository
 from graph import TestRepository, build_graph
 from operations import loading_order
+from render import ascii_tree, mermaid
 import sys
 
 
@@ -25,9 +26,13 @@ def main(argv=None):
                 if args.mode == "order":
                     print("\n".join(loading_order(graph)))
                 else:
-                    for node, dependencies in graph.items():
-                        print(f"{node} -> {', '.join(dependencies) or '(нет)'}")
-    except (ValueError, OSError, RecursionError) as error:
+                    print(mermaid(graph))
+                    if args.ascii_tree:
+                        print("\n" + ascii_tree(graph, args.package))
+    except RecursionError:
+        print("Ошибка: превышена глубина рекурсивного BFS", file=sys.stderr)
+        return 1
+    except (ValueError, OSError) as error:
         print(f"Ошибка: {error}", file=sys.stderr)
         return 1
     return 0

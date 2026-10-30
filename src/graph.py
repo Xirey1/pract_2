@@ -27,14 +27,18 @@ class TestRepository:
             raise ValueError(f"Зависимости {name} должны быть списком")
         for dependency in dependencies:
             if not isinstance(dependency, str) or dependency not in self.graph:
-                raise ValueError(f"Неизвестная зависимость {name}: {dependency}")
+                raise ValueError(
+                    f"Неизвестная зависимость {name}: {dependency}"
+                )
         if len(dependencies) != len(set(dependencies)):
             raise ValueError(f"Повторяющиеся зависимости: {name}")
 
     def direct(self, package, include_all=False):
         """Получить прямые зависимости тестового пакета."""
         if package not in self.graph:
-            raise ValueError(f"Пакет отсутствует в тестовом репозитории: {package}")
+            raise ValueError(
+                f"Пакет отсутствует в тестовом репозитории: {package}"
+            )
         return list(self.graph[package])
 
 

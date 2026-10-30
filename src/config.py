@@ -16,6 +16,8 @@ def coordinates(value):
         raise ValueError("Ожидается пакет groupId:artifactId:version")
     if parts[2].endswith("-SNAPSHOT"):
         raise ValueError("SNAPSHOT-версии не поддерживаются")
+    if any(part in {".", ".."} for part in parts):
+        raise ValueError("Некорректные координаты пакета")
     return tuple(parts)
 
 
@@ -42,6 +44,8 @@ def parse_args(argv=None):
 
 def validate(args):
     """Проверить согласованность имени пакета и репозитория."""
+    if args.ascii_tree and args.mode not in {"config", "graph"}:
+        raise ValueError("--ascii доступен только в режиме graph или config")
     if args.test_repository:
         if not re.fullmatch(r"[A-Z]+", args.package):
             raise ValueError("Тестовый пакет: только большие буквы A-Z")
@@ -51,9 +55,13 @@ def validate(args):
         coordinates(args.package)
         url = urlsplit(args.repository)
         if url.scheme not in {"http", "https"} or not url.hostname:
-            raise ValueError("Репозиторий должен иметь URL http:// или https://")
+            raise ValueError(
+                "Репозиторий должен иметь URL http:// или https://"
+            )
         if url.query or url.fragment or url.username or url.password:
-            raise ValueError("URL не должен содержать query, fragment или пароль")
+            raise ValueError(
+                "URL не должен содержать query, fragment или пароль"
+            )
         try:
             url.port
         except ValueError as error:

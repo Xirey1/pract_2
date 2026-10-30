@@ -1,6 +1,7 @@
 """Проверки самостоятельного разбора Maven POM."""
 
 import sys
+import io
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -75,6 +76,13 @@ class MavenTests(unittest.TestCase):
             with self.subTest(props=props), self.assertRaises(ValueError):
                 interpolate("${v}", props)
 
+    def test_growing_property_cycle(self):
+        """Цикл с растущей строкой тоже должен завершаться ошибкой."""
+        with self.assertRaisesRegex(ValueError, "Цикл"):
+            interpolate("${v}", {"v": "${v}suffix"})
+        self.assertEqual(interpolate("${a}-${a}",
+                                     {"a": "${b}", "b": "1"}), "1-1")
+
     def test_parent_cycle(self):
         """Остановить циклическое наследование."""
         root = pom("<parent><groupId>g</groupId><artifactId>a</artifactId>"
@@ -89,5 +97,23 @@ class MavenTests(unittest.TestCase):
         errors = [HTTPError("url", 404, "missing", {}, None), URLError("DNS")]
         for error in errors:
             with patch("maven.urlopen", side_effect=error):
+                with self.assertRaises(ValueError):
+                    MavenRepository("https://repo.test").direct("g:a:1")
+
+    def test_namespace_and_url(self):
+        """Скачать по пути Maven и обработать XML namespace."""
+        xml = ('<project xmlns="http://maven.apache.org/POM/4.0.0">'
+               '<dependencies>' + dependency("b")
+               + '</dependencies></project>').encode()
+        with patch("maven.urlopen", return_value=io.BytesIO(xml)) as opened:
+            repo = MavenRepository("https://repo.test/")
+            self.assertEqual(repo.direct("org.demo:a:1"), ["g:b:1"])
+            self.assertEqual(opened.call_args.args[0],
+                             "https://repo.test/org/demo/a/1/a-1.pom")
+
+    def test_invalid_xml(self):
+        """Отклонить HTML вместо POM и поврежденный XML."""
+        for data in [b"<broken", b"<html/>"]:
+            with patch("maven.urlopen", return_value=io.BytesIO(data)):
                 with self.assertRaises(ValueError):
                     MavenRepository("https://repo.test").direct("g:a:1")

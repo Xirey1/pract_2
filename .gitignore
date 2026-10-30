@@ -9,3 +9,7 @@ tools/
 *.class
 *.jar
 target/
+
+# Личные заметки
+/Разбор работы.md
+/docs/DEFENSE.md

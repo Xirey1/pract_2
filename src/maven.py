@@ -22,19 +22,23 @@ def text(node, path, default=""):
 
 def interpolate(value, properties):
     """Подставить свойства; сообщить об отсутствующих и циклических."""
-    seen = set()
-    while PROPERTY.search(value):
-        if value in seen:
-            raise ValueError(f"Циклическое свойство POM: {value}")
-        seen.add(value)
-        def replace(match):
-            """Вернуть значение одного свойства."""
-            key = match.group(1)
-            if key not in properties:
-                raise ValueError(f"Неизвестное свойство POM: {key}")
-            return properties[key]
-        value = PROPERTY.sub(replace, value)
-    return value
+    active = set()
+    resolved = {}
+
+    def replace(match):
+        """Разрешить свойство, проверяя цикл по именам, а не значениям."""
+        key = match.group(1)
+        if key in active or len(active) >= MAX_MODEL_DEPTH:
+            raise ValueError(f"Цикл или слишком глубокое свойство POM: {key}")
+        if key not in properties:
+            raise ValueError(f"Неизвестное свойство POM: {key}")
+        if key not in resolved:
+            active.add(key)
+            resolved[key] = PROPERTY.sub(replace, properties[key])
+            active.remove(key)
+        return resolved[key]
+
+    return PROPERTY.sub(replace, value)
 
 
 def dependency_rows(root, path):
@@ -102,7 +106,9 @@ class MavenRepository:
         if package in self.cache:
             return self.cache[package]
         if package in self.loading or len(self.loading) >= MAX_MODEL_DEPTH:
-            raise ValueError(f"Цикл или слишком глубокое наследование: {package}")
+            raise ValueError(
+                f"Цикл или слишком глубокое наследование: {package}"
+            )
         self.loading.add(package)
         try:
             model = self.build_model(package, self.read_xml(package))
@@ -130,10 +136,13 @@ class MavenRepository:
             if parent_node is not None:
                 for key in ["groupId", "artifactId", "version"]:
                     props[f"{prefix}.parent.{key}"] = text(parent_node, key)
-        rows = dependency_rows(root, "dependencyManagement/dependencies/dependency")
+        rows = dependency_rows(
+            root, "dependencyManagement/dependencies/dependency"
+        )
         managed = self.management(parent.managed, rows, props)
         dependencies = merge_rows(
-            parent.dependencies, dependency_rows(root, "dependencies/dependency")
+            parent.dependencies,
+            dependency_rows(root, "dependencies/dependency")
         )
         return PomModel(props, managed, dependencies)
 

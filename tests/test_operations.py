@@ -24,7 +24,9 @@ class OrderTests(unittest.TestCase):
                 self.assertEqual(len(order), len(set(order)))
                 for node, dependencies in graph.items():
                     for dependency in dependencies:
-                        self.assertLess(order.index(dependency), order.index(node))
+                        self.assertLess(
+                            order.index(dependency), order.index(node)
+                        )
 
     def test_cycles_have_no_order(self):
         """Цикл и петля не имеют топологического порядка."""
