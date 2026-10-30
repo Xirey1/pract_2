@@ -22,3 +22,16 @@
 Запуск без скрипта: `python -X utf8 src/main.py` с теми же опциями.
 Linux/macOS: `sh run.sh` с теми же опциями; тесты: `sh run.sh test`.
 Сборка и установка библиотек не требуются.
+
+## Этап 2
+
+`--mode direct` (по умолчанию на этом этапе) выводит все прямые
+зависимости POM, в том числе test/provided/optional. Скачивание выполняет
+`urllib.request`, разбор XML - `xml.etree.ElementTree`.
+Поддерживаются XML namespace, свойства, родительские POM,
+`dependencyManagement`, импорт BOM и кэш моделей в памяти.
+Сетевые ошибки, HTTP 404, неверный XML и неизвестные свойства дают код 1.
+
+```powershell
+.\run.bat --package junit:junit:4.13.2 --repository https://repo.maven.apache.org/maven2 --mode direct
+```
