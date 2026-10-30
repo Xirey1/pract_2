@@ -2,6 +2,7 @@
 
 from config import format_config, parse_args
 from maven import MavenRepository
+from graph import TestRepository, build_graph
 import sys
 
 
@@ -11,12 +12,17 @@ def main(argv=None):
     try:
         if args.mode == "config":
             print(format_config(args))
-        elif args.test_repository:
-            raise ValueError("Тестовый репозиторий появится на этапе 3")
         else:
-            repository = MavenRepository(args.repository)
-            dependencies = repository.direct(args.package, include_all=True)
-            print("\n".join(dependencies) or "Прямых зависимостей нет")
+            repository_class = (TestRepository if args.test_repository
+                                else MavenRepository)
+            repository = repository_class(args.repository)
+            if args.mode == "direct":
+                dependencies = repository.direct(args.package, include_all=True)
+                print("\n".join(dependencies) or "Прямых зависимостей нет")
+            else:
+                graph = build_graph(args.package, repository)
+                for node, dependencies in graph.items():
+                    print(f"{node} -> {', '.join(dependencies) or '(нет)'}")
     except (ValueError, OSError, RecursionError) as error:
         print(f"Ошибка: {error}", file=sys.stderr)
         return 1

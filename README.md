@@ -25,7 +25,7 @@ Linux/macOS: `sh run.sh` с теми же опциями; тесты: `sh run.sh
 
 ## Этап 2
 
-`--mode direct` (по умолчанию на этом этапе) выводит все прямые
+`--mode direct` выводит все прямые
 зависимости POM, в том числе test/provided/optional. Скачивание выполняет
 `urllib.request`, разбор XML - `xml.etree.ElementTree`.
 Поддерживаются XML namespace, свойства, родительские POM,
@@ -35,3 +35,21 @@ Linux/macOS: `sh run.sh` с теми же опциями; тесты: `sh run.sh
 ```powershell
 .\run.bat --package junit:junit:4.13.2 --repository https://repo.maven.apache.org/maven2 --mode direct
 ```
+
+## Этап 3
+
+`--mode graph` - режим по умолчанию. Рекурсивный BFS обрабатывает
+один уровень за вызов. Множество обнаруженных узлов исключает повторные
+загрузки и зацикливание. Обратные ребра сохраняются.
+Обходятся только пакеты, достижимые от корня.
+
+```powershell
+.\run.bat --package A --repository examples/diamond.json --test-repository
+.\run.bat --package A --repository examples/cycle.json --test-repository
+```
+
+Тестовый репозиторий - JSON-объект: ключ - имя пакета большими латинскими
+буквами, значение - список его прямых зависимостей. Все узлы должны быть
+объявлены явно, листья задаются пустым списком. Примеры в `examples/`:
+цепочка, ромб с общей зависимостью, цикл, петля, изолированный пакет.
+В реальном графе учитываются compile/runtime, без optional.
