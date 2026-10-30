@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.idea/
+.vscode/
+output/
+tmp/
+tools/
+*.class
+*.jar
+target/
