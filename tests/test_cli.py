@@ -14,7 +14,7 @@ class CliTests(unittest.TestCase):
     def run_cli(self, name="diamond", *extra):
         """Вызвать программу в отдельном процессе."""
         command = [sys.executable, "-X", "utf8", "src/main.py",
-                   "--package", "A", "--repository", f"examples/{name}.json",
+                   "--package", "A", "--repository", f"test_data/{name}.json",
                    "--test-repository", *extra]
         return subprocess.run(command, cwd=ROOT, capture_output=True,
                               encoding="utf-8", timeout=10)

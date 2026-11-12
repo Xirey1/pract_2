@@ -48,7 +48,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_test_mode_and_invalid_values(self):
         """Проверить существующий JSON и разные неверные URL."""
-        path = Path(__file__).resolve().parents[1] / "examples/chain.json"
+        path = Path(__file__).resolve().parents[1] / "test_data/chain.json"
         args = parse_args(["--package", "A", "--repository", str(path),
                            "--test-repository", "--mode", "config"])
         self.assertTrue(args.test_repository)

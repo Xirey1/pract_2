@@ -16,7 +16,7 @@ class GraphTests(unittest.TestCase):
 
     def graph(self, name):
         """Прочитать пример и обойти его от A."""
-        return build_graph("A", TestRepository(ROOT / "examples" / name))
+        return build_graph("A", TestRepository(ROOT / "test_data" / name))
 
     def test_bfs_order_and_shared_dependency(self):
         """Открывать узлы по слоям и один раз для общего потомка."""
@@ -51,6 +51,6 @@ class GraphTests(unittest.TestCase):
 
     def test_unknown_package(self):
         """Не возвращать пустой список для отсутствующего пакета."""
-        repo = TestRepository(ROOT / "examples" / "isolated.json")
+        repo = TestRepository(ROOT / "test_data" / "isolated.json")
         with self.assertRaises(ValueError):
             repo.direct("B")

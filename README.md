@@ -1,100 +1,185 @@
 # Практическая работа №2
 
-Вариант 11. Программа строит граф зависимостей пакетов Maven
-и выводит его в Mermaid или в виде ASCII-дерева.
-Написана на Python 3.10+, дополнительные библиотеки не нужны.
+Вариант 11. Визуализация графа зависимостей пакетов Maven.
 
-## Запуск
+## Язык реализации
 
-Команды выполняются из папки проекта. Пример с локальным графом:
+Python 3.10 и новее. Для работы программы достаточно стандартной библиотеки.
 
-```powershell
-.\run.bat --package A --repository examples/diamond.json --test-repository --ascii
+## Назначение программы
+
+Программа получает прямые зависимости пакета из POM, обходит транзитивные
+зависимости и показывает результат в терминале. Для проверки обхода без
+интернета есть локальные JSON-графы.
+
+## Структура проекта
+
+```text
+.
+├── src/
+│   ├── main.py
+│   ├── config.py
+│   ├── maven.py
+│   ├── graph.py
+│   ├── operations.py
+│   └── render.py
+├── tests/
+├── test_data/
+│   ├── chain.json
+│   ├── cycle.json
+│   ├── diamond.json
+│   ├── isolated.json
+│   └── self_cycle.json
+├── docs/
+├── scripts/
+├── examples/
+│   └── maven-comparison/
+│       └── pom.xml
+├── README.md
+└── run.bat
 ```
 
-Пример с пакетом Maven:
+## Этап 1. Конфигурация
 
-```powershell
-.\run.bat --package junit:junit:4.13.2 --repository https://repo.maven.apache.org/maven2 --ascii
-```
+Параметры передаются через командную строку.
 
-Можно запускать напрямую: `python -X utf8 src/main.py` с теми же аргументами.
-На Linux: `sh run.sh` с теми же аргументами.
-
-## Параметры
-
-| Параметр | Для чего нужен |
+| Параметр | Назначение |
 | --- | --- |
-| `--package` | Пакет в формате groupId:artifactId:version; в тестовом режиме, например, A |
-| `--repository` | URL репозитория Maven или путь к JSON с тестовым графом |
-| `--test-repository` | Работа с локальным JSON вместо Maven |
-| `--ascii` | Дополнительный вывод ASCII-дерева |
-| `--mode` | Режим: config, direct, graph или order; по умолчанию graph |
-| `--help` | Справка по запуску |
+| `--package` | Координаты `groupId:artifactId:version` или имя тестового пакета, например A |
+| `--repository` | Адрес Maven-репозитория или путь к JSON-файлу |
+| `--test-repository` | Включает локальный тестовый режим |
+| `--mode` | `config`, `direct`, `graph` или `order`. По умолчанию `graph` |
+| `--ascii` | Добавляет ASCII-дерево к выводу графа |
+| `--help` | Показывает справку |
 
-`--package` и `--repository` обязательны. Флаги `--ascii` и
-`--test-repository` указываются без значений.
+Имя пакета и репозиторий обязательны. Флаги `--test-repository` и
+`--ascii` указываются без значения. В режиме `config` программа печатает
+настройки в формате `ключ=значение`.
 
-Режимы: `config` выводит настройки, `direct` - прямые зависимости,
-`graph` - граф Mermaid, `order` - порядок загрузки зависимостей.
-Флаг `--ascii` используется с graph; в config выводится его значение.
-
-Например, порядок загрузки для тестового графа:
-
-```powershell
-.\run.bat --package A --repository examples/diamond.json --test-repository --mode order
+```bat
+run.bat --package A --repository test_data/diamond.json --test-repository --mode config
 ```
 
-## Как устроена программа
+## Этап 2. Получение прямых зависимостей
 
-Граф строится обходом в ширину (BFS) с рекурсивным переходом между уровнями.
-Уже найденные вершины запоминаются, поэтому циклы не вызывают бесконечный обход.
-Порядок загрузки определяется алгоритмом Кана: зависимости идут раньше
-пакетов, которым они нужны. Для графа с циклом порядок построить нельзя.
+Программа строит адрес POM по координатам пакета, скачивает XML и извлекает
+прямые зависимости. При разборе учитываются свойства, родительские POM,
+`dependencyManagement` и импорт BOM. Maven для получения данных программой
+не запускается.
 
-| Файл | Функции и классы |
-| --- | --- |
-| `src/main.py` | `main` выбирает режим и выводит результат |
-| `src/config.py` | `parse_args`, `validate`, `coordinates` проверяют параметры; `format_config` выводит настройки |
-| `src/maven.py` | `text`, `dependency_rows` читают XML; `interpolate` подставляет свойства; `merge_rows` объединяет зависимости |
-| `src/maven.py` | `PomModel` хранит данные; `MavenRepository` загружает POM и хранит кэш |
-| `src/maven.py` | `read_xml` скачивает POM; `model`, `build_model` собирают модель; `management` читает BOM; `direct` возвращает зависимости |
-| `src/graph.py` | `TestRepository` читает и проверяет JSON (`validate_node`, `direct`); `build_graph`, `visit_level` выполняют BFS |
-| `src/operations.py` | `loading_order` вычисляет порядок загрузки |
-| `src/render.py` | `mermaid` формирует диаграмму; `ascii_tree`, `push_children` формируют дерево |
-
-Тестовые графы находятся в `examples/`: цепочка, ромб, цикл, петля
-и отдельная вершина. Формат JSON: `"A": ["B", "C"]` означает,
-что A зависит от B и C. Все вершины нужно объявить, листья записываются как `[]`.
-В ASCII-дереве `[cycle]` обозначает цикл, `[shared]` - общую зависимость,
-которая уже показана в другой ветке.
-
-## Проверка
-
-```powershell
-.\run.bat test
+```bat
+run.bat --package junit:junit:4.13.2 --repository https://repo.maven.apache.org/maven2 --mode direct
 ```
 
-Тесты написаны на unittest. Без скрипта:
-`python -X utf8 -m unittest discover -s tests -v`.
-На Linux: `sh run.sh test`. Сборка проекта не требуется.
+## Этап 3. Граф зависимостей
 
-В `scripts/` находятся отдельные проверки:
-`real_examples.py` получает три примера и собирает страницу диаграмм
-(`main`, `write_gallery`), `compare_maven.py` запускает Maven (`main`, `run`),
-`verify_comparison.py` сравнивает сохраненные ребра
-(`main`, `maven_edges`, `mermaid_edges`).
+Для транзитивного графа используется рекурсивный BFS. Каждый вызов
+обрабатывает целый уровень. Найденные вершины записываются в множество,
+поэтому каждая обрабатывается один раз, а рёбра к уже найденным вершинам
+сохраняются. Это позволяет показать цикл без бесконечного обхода.
 
-[Примеры диаграмм](docs/EXAMPLES.md) · [Сравнение с Maven](docs/COMPARISON.md)
+### Тестовый режим
+
+Имена пакетов записываются большими латинскими буквами. Ключ — имя пакета,
+значение — список его прямых зависимостей.
+
+```json
+{
+  "A": ["B", "C"],
+  "B": ["D"],
+  "C": ["D"],
+  "D": []
+}
+```
+
+```bat
+run.bat --package A --repository test_data/diamond.json --test-repository
+run.bat --package A --repository test_data/cycle.json --test-repository
+```
+
+## Этап 4. Порядок загрузки
+
+Алгоритм Кана сначала выбирает вершины без зависимостей, затем пакеты,
+у которых все зависимости уже обработаны. Для ромба получается
+`D, B, C, A`. Если в графе есть цикл, программа сообщает об ошибке.
+
+```bat
+run.bat --package A --repository test_data/diamond.json --test-repository --mode order
+```
+
+## Этап 5. Mermaid и ASCII-дерево
+
+Программа присваивает вершинам идентификаторы и выводит рёбра в Mermaid.
+Стрелка от A к B означает, что A зависит от B.
+
+```mermaid
+flowchart TD
+    n0["A"]
+    n1["B"]
+    n2["C"]
+    n3["D"]
+    n0 --> n1
+    n0 --> n2
+    n1 --> n3
+    n2 --> n3
+```
+
+```bat
+run.bat --package A --repository test_data/diamond.json --test-repository --ascii
+```
+
+В ASCII-дереве `[shared]` отмечает общую зависимость, уже раскрытую в другой
+ветке, а `[cycle]` — возврат к вершине на текущем пути.
+
+## Примеры с Maven Central
+
+```bat
+run.bat --package junit:junit:4.13.2 --repository https://repo.maven.apache.org/maven2 --ascii
+run.bat --package org.apache.commons:commons-text:1.12.0 --repository https://repo.maven.apache.org/maven2
+run.bat --package com.fasterxml.jackson.core:jackson-databind:2.17.2 --repository https://repo.maven.apache.org/maven2
+```
+
+Готовые диаграммы собраны в [примерах визуализации](docs/EXAMPLES.md).
+
+## Сравнение с Maven
+
+Для этих трёх пакетов рёбра совпали с результатами `dependency:tree`.
+Порядок из режима `order` показывает, какие зависимости должны идти раньше
+родителя. Фактическая последовательность скачивания JAR у Maven может
+отличаться. Команды и протоколы приведены в [отчёте сравнения](docs/COMPARISON.md).
 
 ## Ограничения
 
-В граф входят compile/runtime-зависимости без optional. Режим direct
-выводит все прямые зависимости, включая test/provided/optional.
-Поддерживаются свойства, родительские POM, dependencyManagement и BOM.
-Профили, exclusions, выбор одной версии при конфликте, classifiers,
-диапазоны версий, SNAPSHOT, relocation и дополнительные репозитории из POM
-не реализованы. Разные версии одного пакета считаются разными вершинами.
+В граф включаются зависимости compile/runtime без optional. Режим
+`direct` выводит все прямые зависимости. Выбор версии при конфликте,
+профили Maven, exclusions, classifiers, диапазоны версий, SNAPSHOT,
+relocation и дополнительные репозитории из POM не реализованы.
 
-При неверных аргументах программа возвращает код 2, при ошибке данных
-или сети - 1, при успешном выполнении - 0.
+## Основные файлы
+
+| Файл | Назначение |
+| --- | --- |
+| `main.py` | `main` выбирает режим и печатает результат |
+| `config.py` | `parse_args`, `validate` и `coordinates` проверяют параметры. `format_config` форматирует настройки |
+| `maven.py` | `read_xml` скачивает POM. `model` и `build_model` собирают и кэшируют `PomModel` |
+| `maven.py` | `text` и `dependency_rows` читают XML. `interpolate` подставляет свойства, `merge_rows` объединяет данные |
+| `maven.py` | `management` обрабатывает BOM, `direct` возвращает координаты зависимостей |
+| `graph.py` | `TestRepository` проверяет JSON и отдаёт список зависимостей. `build_graph` и `visit_level` выполняют BFS |
+| `operations.py` | `loading_order` вычисляет порядок загрузки |
+| `render.py` | `mermaid` формирует описание графа. `ascii_tree` и `push_children` строят текстовое дерево |
+
+В `scripts/` находятся команды для получения реальных примеров, запуска
+сравнения с Maven и проверки сохранённых результатов.
+
+## Запуск и тесты
+
+Из корня проекта в Windows:
+
+```bat
+run.bat --package A --repository test_data/diamond.json --test-repository --ascii
+run.bat test
+```
+
+Из PowerShell перед `run.bat` добавь `.\`. Программу можно запустить напрямую
+через `python -X utf8 src/main.py` с теми же аргументами. Для запуска
+тестов без скрипта используется `python -X utf8 -m unittest discover -s tests -v`.
