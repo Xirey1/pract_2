@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as element_tree
 
 from config import coordinates
 
@@ -92,8 +92,8 @@ class MavenRepository:
         if len(data) > MAX_POM_BYTES:
             raise ValueError(f"POM слишком велик: {package}")
         try:
-            root = ET.fromstring(data)
-        except ET.ParseError as error:
+            root = element_tree.fromstring(data)
+        except element_tree.ParseError as error:
             raise ValueError(f"Некорректный XML POM: {package}") from error
         for node in root.iter():
             node.tag = node.tag.split("}")[-1]
@@ -168,20 +168,14 @@ class MavenRepository:
     def direct(self, package, include_all=False):
         """Вернуть координаты прямых зависимостей в порядке POM."""
         model = self.model(package)
-        managed = {}
-        for row in model.managed:
-            item = {key: interpolate(value, model.properties)
-                    for key, value in row.items()}
-            managed[(item["groupId"], item["artifactId"])] = item
+        managed = managed_dependencies(model)
         result = []
         for row in model.dependencies:
             item = {key: interpolate(value, model.properties)
                     for key, value in row.items()}
             defaults = managed.get((item["groupId"], item["artifactId"]), {})
             item = {**defaults, **{k: v for k, v in item.items() if v}}
-            scope = item.get("scope", "compile")
-            if not include_all and (scope not in RUNTIME_SCOPES or
-                                    item.get("optional") == "true"):
+            if not include_all and not is_runtime_dependency(item):
                 continue
             dependency = ":".join(item.get(key, "") for key in
                                   ["groupId", "artifactId", "version"])
@@ -189,3 +183,19 @@ class MavenRepository:
             if dependency not in result:
                 result.append(dependency)
         return result
+
+
+def managed_dependencies(model):
+    """Подставить свойства и индексировать управляемые зависимости."""
+    managed = {}
+    for row in model.managed:
+        item = {key: interpolate(value, model.properties)
+                for key, value in row.items()}
+        managed[(item["groupId"], item["artifactId"])] = item
+    return managed
+
+
+def is_runtime_dependency(item):
+    """Определить, включается ли зависимость в граф времени выполнения."""
+    scope = item.get("scope", "compile")
+    return scope in RUNTIME_SCOPES and item.get("optional") != "true"

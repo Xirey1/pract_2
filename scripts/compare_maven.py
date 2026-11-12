@@ -12,7 +12,7 @@ PLUGIN = "org.apache.maven.plugins:maven-dependency-plugin:3.6.1"
 
 
 def run(maven, package, goal):
-    """Сохранить реальный вывод штатного инструмента Maven."""
+    """Сохранить вывод Maven без локального пути и времени запуска."""
     group, artifact, version = package.split(":")
     output = ROOT / "docs" / "maven"
     output.mkdir(parents=True, exist_ok=True)
@@ -28,7 +28,6 @@ def run(maven, package, goal):
     env["MAVEN_OPTS"] = env.get("MAVEN_OPTS", "") + " -Dfile.encoding=UTF-8"
     result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True,
                             encoding="utf-8", errors="replace", timeout=1800)
-    # Абсолютные пути компьютера не нужны в публикуемом протоколе.
     log = (result.stdout + result.stderr).replace(str(ROOT), "<PROJECT>")
     log = re.sub(r"Total time:.*", "Total time: (omitted)", log)
     log = re.sub(r"Finished at:.*", "Finished at: (omitted)", log)

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as element_tree
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from maven import MavenRepository, interpolate
@@ -14,7 +14,7 @@ from maven import MavenRepository, interpolate
 
 def pom(body):
     """Создать минимальный POM без XML namespace."""
-    return ET.fromstring(f"<project>{body}</project>")
+    return element_tree.fromstring(f"<project>{body}</project>")
 
 
 def dependency(artifact, version="1", extra=""):

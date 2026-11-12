@@ -5,11 +5,13 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
+COORDINATE_PARTS = 3
+
 
 def coordinates(value):
     """Проверить координаты groupId:artifactId:version."""
     parts = value.split(":")
-    if len(parts) != 3 or not all(
+    if len(parts) != COORDINATE_PARTS or not all(
         re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", part)
         for part in parts
     ):
@@ -51,21 +53,22 @@ def validate(args):
             raise ValueError("Тестовый пакет: только большие буквы A-Z")
         if not Path(args.repository).is_file():
             raise ValueError("Файл тестового репозитория не найден")
-    else:
-        coordinates(args.package)
-        url = urlsplit(args.repository)
-        if url.scheme not in {"http", "https"} or not url.hostname:
-            raise ValueError(
-                "Репозиторий должен иметь URL http:// или https://"
-            )
-        if url.query or url.fragment or url.username or url.password:
-            raise ValueError(
-                "URL не должен содержать query, fragment или пароль"
-            )
-        try:
-            url.port
-        except ValueError as error:
-            raise ValueError("Некорректный порт репозитория") from error
+        return
+    coordinates(args.package)
+    validate_repository_url(args.repository)
+
+
+def validate_repository_url(repository):
+    """Проверить адрес Maven-репозитория и его порт."""
+    url = urlsplit(repository)
+    if url.scheme not in {"http", "https"} or not url.hostname:
+        raise ValueError("Репозиторий должен иметь URL http:// или https://")
+    if url.query or url.fragment or url.username or url.password:
+        raise ValueError("URL не должен содержать query, fragment или пароль")
+    try:
+        url.port
+    except ValueError as error:
+        raise ValueError("Некорректный порт репозитория") from error
 
 
 def format_config(args):
